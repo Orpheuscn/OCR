@@ -229,17 +229,18 @@ const handlePdfFile = async (file: File) => {
   currentPage.value = 1
   totalPages.value = pdfDoc.totalPages
 
-  // 设置PDF模式
+  // 设置PDF模式和文件
   pdfStore.setPdfMode(true)
+  pdfStore.setCurrentPdfFile(file)
   pdfStore.setPageInfo(1, pdfDoc.totalPages)
 
   const pageResult = await pdfProcessor.renderFirstPage()
   const img = await loadImage(pageResult.imageFile)
   currentImage = img
-  
+
   // 更新PDF store中的当前页面图片
   pdfStore.setCurrentPdfPageImage(img)
-  
+
   await nextTick()
   drawImageToCanvas(img)
 }

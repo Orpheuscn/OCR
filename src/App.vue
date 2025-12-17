@@ -105,7 +105,7 @@ onMounted(() => {
       <!-- 坐标视图打开按钮 -->
       <button
         v-if="selectedFile && coordinateStore.hasOcrResult"
-        class="btn btn-circle btn-secondary fixed left-6 bottom-32 shadow-lg z-50 transition-transform hover:scale-110"
+        class="btn btn-circle btn-accent fixed left-6 bottom-32 shadow-lg z-50 transition-transform hover:scale-110"
         @click="handleOpenCoordinateView"
         title="打开坐标视图"
       >
