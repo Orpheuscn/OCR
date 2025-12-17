@@ -132,7 +132,7 @@
     <!-- PDF全页识别结果对话框 -->
     <PdfFullTextDialog
       v-model:is-open="showPdfFullTextDialog"
-      :pdf-text="pdfFullText"
+      :pages-annotations="pdfPagesAnnotations"
       :total-pages="pdfStore.totalPages"
     />
   </div>
@@ -245,7 +245,7 @@ const canStartRecognition = computed(() => {
 const isRecognizingAllPages = ref(false)
 const allPagesProgress = ref({ current: 0, total: 0 })
 const showPdfFullTextDialog = ref(false)
-const pdfFullText = ref('')
+const pdfPagesAnnotations = ref<any[]>([])
 
 // 计算属性：是否可以识别全部页面（仅PDF模式且有多页）
 const canRecognizeAllPages = computed(() => {
@@ -358,7 +358,7 @@ const recognizeAllPages = async () => {
     const apiKey = apiKeyStore.apiKey
 
     // 存储所有页面的识别结果
-    const allPagesText: string[] = []
+    const allPagesResults: any[] = []
 
     // 循环处理每一页
     for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
@@ -380,12 +380,8 @@ const recognizeAllPages = async () => {
       const result = await ocrService.recognizeFromImage(img, apiKey, languageHints)
 
       if (result.success && result.fullTextAnnotation) {
-        // 添加页面标记和文本
-        const pageText = `\n========== 第 ${pageNum} 页 ==========\n${result.fullTextAnnotation.text}`
-        allPagesText.push(pageText)
-      } else {
-        // 即使识别失败也记录
-        allPagesText.push(`\n========== 第 ${pageNum} 页 ==========\n[识别失败]`)
+        // 保存完整的识别结果
+        allPagesResults.push(result.fullTextAnnotation)
       }
 
       // 清理 URL 对象
@@ -395,11 +391,8 @@ const recognizeAllPages = async () => {
     // 清理 PDF 处理器
     processor.cleanup()
 
-    // 合并所有页面的文本
-    const combinedText = allPagesText.join('\n')
-
-    // 保存文本并显示对话框
-    pdfFullText.value = combinedText
+    // 保存所有页面的 fullTextAnnotation 数组并显示对话框
+    pdfPagesAnnotations.value = allPagesResults
     showPdfFullTextDialog.value = true
 
     notificationStore.showSuccess('识别完成', `成功识别 ${totalPages} 页PDF文档`)

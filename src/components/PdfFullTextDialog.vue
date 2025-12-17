@@ -112,13 +112,13 @@ import type { FullTextAnnotation, ProcessedSymbol, Page, Block, Paragraph, Word,
 // Props
 interface Props {
   isOpen?: boolean
-  pdfText?: string
+  pagesAnnotations?: FullTextAnnotation[]  // 每一页的 fullTextAnnotation 数组
   totalPages?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
   isOpen: false,
-  pdfText: '',
+  pagesAnnotations: () => [],
   totalPages: 0
 })
 
@@ -185,20 +185,70 @@ const extractSymbolsData = (fullTextAnnotation: FullTextAnnotation): ProcessedSy
 }
 
 // 辅助函数：根据方向和排版模式处理文本
-const processTextByLayout = (text: string, direction: string, mode: string, languageCode: string): string => {
-  // PDF全页识别的文本已经是纯文本，直接处理标点符号即可
-  return processPunctuation(text, languageCode)
+const processTextByLayout = (fullTextAnnotation: FullTextAnnotation, filteredSymbolsData: ProcessedSymbol[], direction: string, mode: string, languageCode: string): string => {
+  const key = `${direction}-${mode}`
+
+  // 调试信息
+  if (direction === 'vertical') {
+    console.log('竖排模式调试信息:', {
+      key,
+      symbolsCount: filteredSymbolsData.length,
+      hasFullText: !!fullTextAnnotation?.text,
+      fullTextLength: fullTextAnnotation?.text?.length || 0
+    })
+  }
+
+  switch (key) {
+    case 'horizontal-original':
+      return processHorizontalParallelText(fullTextAnnotation, filteredSymbolsData, languageCode)
+    case 'horizontal-paragraph':
+      return processHorizontalParagraphText(fullTextAnnotation, filteredSymbolsData, languageCode)
+    case 'vertical-original':
+      // 如果没有符号数据，回退到原始文本处理
+      if (!filteredSymbolsData || filteredSymbolsData.length === 0) {
+        return processPunctuation(fullTextAnnotation?.text || '', languageCode)
+      }
+      return processVerticalParallelText(filteredSymbolsData, languageCode, true)
+    case 'vertical-paragraph':
+      // 如果没有符号数据，回退到原始文本处理
+      if (!filteredSymbolsData || filteredSymbolsData.length === 0) {
+        return processPunctuation(fullTextAnnotation?.text || '', languageCode)
+      }
+      return processVerticalParagraphText(fullTextAnnotation, filteredSymbolsData, languageCode)
+    default:
+      // 如果没有匹配的处理函数，回退到简单的标点符号处理
+      return processPunctuation(fullTextAnnotation?.text || '', languageCode)
+  }
 }
 
 // 计算属性 - 显示文本
 const displayText = computed(() => {
-  if (!props.pdfText) return ''
+  if (!props.pagesAnnotations || props.pagesAnnotations.length === 0) return ''
 
   const direction = ocrStore.textDirection
   const mode = layoutMode.value
   const languageCode = getDetectedLanguageCode()
 
-  return processTextByLayout(props.pdfText, direction, mode, languageCode)
+  // 对每一页分别处理，然后拼接
+  const processedPages = props.pagesAnnotations.map((pageAnnotation, index) => {
+    // 从当前页的OCR结果中提取符号数据
+    const filteredSymbolsData = extractSymbolsData(pageAnnotation)
+
+    // 处理当前页的文本
+    const pageText = processTextByLayout(
+      pageAnnotation,
+      filteredSymbolsData,
+      direction,
+      mode,
+      languageCode
+    )
+
+    // 添加页码标记
+    return `========== 第 ${index + 1} 页 ==========\n${pageText}`
+  })
+
+  // 拼接所有页面
+  return processedPages.join('\n\n')
 })
 
 // 字符数统计
