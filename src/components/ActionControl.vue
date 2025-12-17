@@ -127,12 +127,14 @@ import { usePdfStore } from '@/stores/pdfStore'
 import { useOcrStore } from '@/stores/ocrStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { useApiKeyStore } from '@/stores/apiKeyStore'
+import { useCoordinateStore } from '@/stores/coordinateStore'
 import { ocrService, type APIError } from '@/services/ocrService'
 import languagesData from '@/assets/languages.json'
 
 // Store
 const imageStore = useImageStore()
 const pdfStore = usePdfStore()
+const coordinateStore = useCoordinateStore()
 const ocrStore = useOcrStore()
 const notificationStore = useNotificationStore()
 const apiKeyStore = useApiKeyStore()
@@ -258,6 +260,25 @@ const startRecognition = async () => {
     if (result.success && result.fullTextAnnotation) {
       // 保存识别结果（ocrStore.setResult会处理通知显示）
       ocrStore.setResult(result)
+
+      // 设置图片尺寸到 coordinateStore
+      if (imageStore.editedImageData) {
+        const img = new Image()
+        img.onload = () => {
+          coordinateStore.setImageDimensions(img.width, img.height)
+        }
+        img.src = imageStore.editedImageData
+      } else if (pdfStore.isPdfMode && pdfStore.currentPdfPageImage) {
+        coordinateStore.setImageDimensions(
+          pdfStore.currentPdfPageImage.width,
+          pdfStore.currentPdfPageImage.height
+        )
+      } else if (imageStore.currentImage) {
+        coordinateStore.setImageDimensions(
+          imageStore.currentImage.width,
+          imageStore.currentImage.height
+        )
+      }
     } else {
       throw new Error(result.error || '识别失败')
     }
