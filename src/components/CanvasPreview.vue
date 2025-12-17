@@ -65,6 +65,10 @@ interface Emits {
 
 const emit = defineEmits<Emits>()
 
+// Stores
+const imageStore = useImageStore()
+const pdfStore = usePdfStore()
+
 // Refs
 const canvas = ref<HTMLCanvasElement>()
 const canvasWrapper = ref<HTMLElement>()
@@ -80,9 +84,6 @@ const scaleFactor = ref<ScaleFactor>({ scaleX: 1, scaleY: 1 })
 // 内部状态
 let currentImage: HTMLImageElement | null = null
 let pdfProcessor: PdfProcessor | null = null
-
-const store = useImageStore()
-const pdfStore = usePdfStore()
 
 // 加载图片
 const loadImage = async (file: File) => {
@@ -210,7 +211,7 @@ const handleRegularImageFile = async (file: File) => {
 
   const img = await loadImage(file)
   currentImage = img
-  store.setCurrentImage(img) // 更新 store 中的图片
+  imageStore.setCurrentImage(img) // 更新 store 中的图片
   await nextTick()
   drawImageToCanvas(img)
 }
@@ -256,11 +257,14 @@ const handlePageNavigation = async (direction: 'next' | 'previous') => {
       currentPage.value = pageResult.pageNumber
       const img = await loadImage(pageResult.imageFile)
       currentImage = img
-      
+
       // 更新PDF store中的页面信息和图片
       pdfStore.setPageInfo(pageResult.pageNumber, pageResult.totalPages)
       pdfStore.setCurrentPdfPageImage(img)
-      
+
+      // 清除之前页面的编辑数据，确保使用当前页面的原始图片
+      imageStore.setEditedImageData(null)
+
       await nextTick()
       drawImageToCanvas(img)
     }
@@ -292,7 +296,7 @@ let resizeTimeout: number
 watch(() => props.imageFile, handleImageFile, { immediate: true })
 
 // 监听编辑后的图片数据
-watch(() => store.editedImageData, (newDataUrl) => {
+watch(() => imageStore.editedImageData, (newDataUrl) => {
   if (newDataUrl) {
     const img = new Image()
     img.onload = () => {

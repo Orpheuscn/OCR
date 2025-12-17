@@ -6,6 +6,9 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // GitHub Pages 部署时需要设置 base 路径为仓库名
+  base: process.env.NODE_ENV === 'production' ? '/OCR/' : '/',
+
   plugins: [
     vue(),
     vueDevTools(),
