@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 自定义样式 */
+.drag-over {
+  @apply border-primary border-2 border-dashed bg-primary bg-opacity-10;
+}
