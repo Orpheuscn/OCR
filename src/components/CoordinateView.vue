@@ -42,7 +42,8 @@
       <!-- 坐标系统容器 -->
       <div class="flex-1 overflow-auto bg-base-200 p-4" ref="containerRef">
         <div
-          class="relative bg-white border border-base-300"
+          class="relative border border-base-300"
+          :class="isDarkMode ? 'bg-base-300' : 'bg-white'"
           :style="{
             width: `${systemWidth}px`,
             height: `${systemHeight}px`,
@@ -105,7 +106,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useCoordinateStore } from '@/stores/coordinateStore'
 
 // Props
@@ -132,6 +133,12 @@ const zoomLevel = ref(1)
 const selectedBlockLevel = ref<'blocks' | 'paragraphs' | 'words' | 'symbols'>('blocks')
 const showBounds = ref(true)
 const showCopyToast = ref(false)
+const isDarkMode = ref(false)
+
+// 检测暗色模式
+const checkDarkMode = () => {
+  isDarkMode.value = document.documentElement.getAttribute('data-theme') === 'dark'
+}
 
 // 计算属性
 const systemWidth = computed(() => coordinateStore.imageDimensions.width || 800)
@@ -146,6 +153,25 @@ const displaySymbols = computed(() => {
     ...symbol,
     fontSize: Math.max(12, symbol.height * 0.8)
   }))
+})
+
+// 监听主题变化
+onMounted(() => {
+  checkDarkMode()
+
+  // 监听主题变化
+  const observer = new MutationObserver(() => {
+    checkDarkMode()
+  })
+
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme']
+  })
+
+  onUnmounted(() => {
+    observer.disconnect()
+  })
 })
 
 // 方法
