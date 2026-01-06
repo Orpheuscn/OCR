@@ -159,7 +159,7 @@ export const useCoordinateStore = defineStore('coordinate', () => {
     
     const pages = ocrStore.result?.fullTextAnnotation?.pages || []
     
-    for (const page of pages) {
+    for (const page of pages as any[]) {
       const block = page.blocks?.[blockIdx]
       if (!block) continue
       
