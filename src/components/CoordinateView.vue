@@ -85,7 +85,7 @@
               fontSize: `${symbol.fontSize}px`,
               lineHeight: `${symbol.height}px`
             }"
-            @click="copyText(symbol.text)"
+            @click="copySymbolText(symbol)"
           >
             {{ symbol.text }}
           </div>
@@ -195,6 +195,18 @@ const copyText = async (text: string) => {
   } catch (err) {
     console.error('复制失败:', err)
   }
+}
+
+const copySymbolText = async (symbol: any) => {
+  // 根据当前选择的层级获取对应的文本
+  const text = coordinateStore.getTextByLevel(
+    symbol.blockIdx,
+    symbol.paraIdx,
+    symbol.wordIdx,
+    symbol.symIdx,
+    selectedBlockLevel.value
+  )
+  await copyText(text)
 }
 
 const closeCoordinateView = () => {

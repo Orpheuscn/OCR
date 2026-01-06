@@ -9,6 +9,10 @@ interface SymbolData {
   y: number
   width: number
   height: number
+  blockIdx: number
+  paraIdx: number
+  wordIdx: number
+  symIdx: number
 }
 
 // 区块边界接口
@@ -43,10 +47,10 @@ export const useCoordinateStore = defineStore('coordinate', () => {
     const pages = ocrStore.result?.fullTextAnnotation?.pages || []
     
     pages.forEach((page: any) => {
-      page.blocks?.forEach((block: any) => {
-        block.paragraphs?.forEach((para: any) => {
-          para.words?.forEach((word: any) => {
-            word.symbols?.forEach((symbol: any) => {
+      page.blocks?.forEach((block: any, blockIdx: number) => {
+        block.paragraphs?.forEach((para: any, paraIdx: number) => {
+          para.words?.forEach((word: any, wordIdx: number) => {
+            word.symbols?.forEach((symbol: any, symIdx: number) => {
               const vertices = symbol.boundingBox?.vertices || []
               if (vertices.length >= 4) {
                 const xs = vertices.map((v: any) => v.x || 0)
@@ -61,7 +65,11 @@ export const useCoordinateStore = defineStore('coordinate', () => {
                   x: minX,
                   y: minY,
                   width: maxX - minX,
-                  height: maxY - minY
+                  height: maxY - minY,
+                  blockIdx,
+                  paraIdx,
+                  wordIdx,
+                  symIdx
                 })
               }
             })
@@ -139,6 +147,57 @@ export const useCoordinateStore = defineStore('coordinate', () => {
     return boundaries
   }
   
+  // 根据索引和级别获取文本
+  const getTextByLevel = (
+    blockIdx: number, 
+    paraIdx: number, 
+    wordIdx: number, 
+    symIdx: number, 
+    level: 'blocks' | 'paragraphs' | 'words' | 'symbols'
+  ): string => {
+    if (!hasOcrResult.value) return ''
+    
+    const pages = ocrStore.result?.fullTextAnnotation?.pages || []
+    
+    for (const page of pages) {
+      const block = page.blocks?.[blockIdx]
+      if (!block) continue
+      
+      if (level === 'blocks') {
+        // 返回整个区块的文本
+        return block.paragraphs?.map((p: any) => 
+          p.words?.map((w: any) => 
+            w.symbols?.map((s: any) => s.text || '').join('')
+          ).join(' ')
+        ).join('\n') || ''
+      }
+      
+      const para = block.paragraphs?.[paraIdx]
+      if (!para) continue
+      
+      if (level === 'paragraphs') {
+        // 返回整个段落的文本
+        return para.words?.map((w: any) => 
+          w.symbols?.map((s: any) => s.text || '').join('')
+        ).join(' ') || ''
+      }
+      
+      const word = para.words?.[wordIdx]
+      if (!word) continue
+      
+      if (level === 'words') {
+        // 返回整个单词的文本
+        return word.symbols?.map((s: any) => s.text || '').join('') || ''
+      }
+      
+      // level === 'symbols'
+      const symbol = word.symbols?.[symIdx]
+      return symbol?.text || ''
+    }
+    
+    return ''
+  }
+  
   // 设置图片尺寸
   const setImageDimensions = (width: number, height: number) => {
     imageDimensions.value = { width, height }
@@ -149,6 +208,7 @@ export const useCoordinateStore = defineStore('coordinate', () => {
     hasOcrResult,
     symbolsData,
     getBlockBoundaries,
+    getTextByLevel,
     setImageDimensions
   }
 })
