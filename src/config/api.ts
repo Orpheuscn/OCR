@@ -7,7 +7,7 @@ export const API_CONFIG = {
   VISION_API_ENDPOINT: 'https://vision.googleapis.com/v1/images:annotate',
 
   // 请求超时时间（毫秒）
-  TIMEOUT: 60000,
+  TIMEOUT: 120000,
 } as const
 
 export default API_CONFIG

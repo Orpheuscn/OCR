@@ -22,7 +22,7 @@ class OCRService {
   private timeout: number
   private apiEndpoint: string
 
-  constructor(timeout: number = 60000) {
+  constructor(timeout: number = 120000) {
     this.timeout = timeout
     this.apiEndpoint = 'https://vision.googleapis.com/v1/images:annotate'
   }
@@ -110,36 +110,48 @@ class OCRService {
    */
   private async callVisionAPI(requestBody: unknown, apiKey: string): Promise<any> {
     const url = `${this.apiEndpoint}?key=${apiKey}`
+    const maxAttempts = 2
 
-    // 创建 AbortController 来处理超时
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout)
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      // 每次尝试都创建新的 AbortController 来处理超时
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), this.timeout)
 
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal
-      })
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal
+        })
 
-      clearTimeout(timeoutId)
+        clearTimeout(timeoutId)
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(
-          errorData.error?.message ||
-          `API 请求失败: ${response.status} ${response.statusText}`
-        )
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(
+            errorData.error?.message ||
+            `API 请求失败: ${response.status} ${response.statusText}`
+          )
+        }
+
+        return await response.json()
+      } catch (error) {
+        clearTimeout(timeoutId)
+        const isTimeout = error && typeof error === 'object' && 'name' in error && error.name === 'AbortError'
+        const canRetry = isTimeout && attempt < maxAttempts
+
+        if (canRetry) {
+          continue
+        }
+
+        throw error
       }
-
-      return await response.json()
-    } catch (error) {
-      clearTimeout(timeoutId)
-      throw error
     }
+
+    throw new Error('请求失败')
   }
 
   /**
