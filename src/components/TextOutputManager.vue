@@ -54,18 +54,29 @@
             </div>
           </div>
           
-          <!-- 复制按钮 - 现代化设计 -->
-          <button 
-            @click="copyToClipboard" 
-            :disabled="copying"
-            class="btn btn-accent btn-sm gap-2 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 border-0"
-            :class="{ 'loading': copying }"
-          >
-            <svg v-if="!copying" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            {{ copying ? '复制中...' : '复制' }}
-          </button>
+          <div class="flex items-center gap-2">
+            <!-- JSON下载按钮 -->
+            <button
+              @click="downloadJson"
+              :disabled="!rawOcrJson"
+              class="btn btn-outline btn-accent btn-sm gap-2 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+            >
+              JSON
+            </button>
+
+            <!-- 复制按钮 - 现代化设计 -->
+            <button
+              @click="copyToClipboard"
+              :disabled="copying"
+              class="btn btn-accent btn-sm gap-2 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 border-0"
+              :class="{ 'loading': copying }"
+            >
+              <svg v-if="!copying" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              {{ copying ? '复制中...' : '复制' }}
+            </button>
+          </div>
         </div>
         
         <div class="flex-1 overflow-hidden">
@@ -229,6 +240,10 @@ const textContainerConfig = computed(() => {
   return getTextContainerConfig(languageCode, direction)
 })
 
+const rawOcrJson = computed(() => {
+  return ocrStore.result?.fullTextAnnotation ?? null
+})
+
 // 检测到的语言 - 从ocrStore获取元数据
 const detectedLanguage = computed(() => {
   const fullTextAnnotation = ocrStore.result?.fullTextAnnotation
@@ -276,6 +291,24 @@ const copyToClipboard = async () => {
   } finally {
     copying.value = false
   }
+}
+
+const downloadJson = () => {
+  if (!rawOcrJson.value) return
+
+  const jsonContent = JSON.stringify(rawOcrJson.value, null, 2)
+  const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+
+  link.href = url
+  link.download = `ocr-result-${timestamp}.json`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+  notificationStore.showSuccess('JSON 文件已开始下载', undefined, 1500)
 }
 </script>
 
