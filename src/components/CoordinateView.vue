@@ -105,6 +105,7 @@
               fontSize: `${symbol.fontSize}px`,
               lineHeight: `${symbol.height}px`
             }"
+            :title="getSymbolTooltip(symbol)"
             @click="copySymbolText(symbol)"
           >
             {{ symbol.text }}
@@ -130,7 +131,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useCoordinateStore } from '@/stores/coordinateStore'
 import { useOcrStore } from '@/stores/ocrStore'
 import { detectMissingCharacterBoxes } from '@/utils/missingCharacterDetection'
-import { getDetectedLanguageCode } from '@/utils/textProcessors'
+import { checkLanguageCategory, getDetectedLanguageCode } from '@/utils/textProcessors'
 import type { FullTextAnnotation } from '@/types/ocr'
 
 // Props
@@ -220,11 +221,39 @@ const zoomOut = () => {
   zoomLevel.value = Math.max(0.2, zoomLevel.value - 0.1)
 }
 
+const normalizeCopiedText = (text: string): string => {
+  const languageCode = getDetectedLanguageCode()
+
+  if (!checkLanguageCategory(languageCode, 'no_space')) {
+    return text
+  }
+
+  return text.replace(/[^\S\r\n]/g, '')
+}
+
+const getSymbolTooltip = (symbol: any): string => {
+  const text = coordinateStore.getTextByLevel(
+    symbol.blockIdx,
+    symbol.paraIdx,
+    symbol.wordIdx,
+    symbol.symIdx,
+    selectedBlockLevel.value
+  )
+
+  return [
+    `Block ${symbol.blockIdx}`,
+    `Para ${symbol.blockIdx}-${symbol.paraIdx}`,
+    `Word ${symbol.blockIdx}-${symbol.paraIdx}-${symbol.wordIdx}`,
+    `Sym ${symbol.blockIdx}-${symbol.paraIdx}-${symbol.wordIdx}-${symbol.symIdx}`,
+    text
+  ].join('\n')
+}
+
 const copyText = async (text: string) => {
   if (!text) return
 
   try {
-    await navigator.clipboard.writeText(text)
+    await navigator.clipboard.writeText(normalizeCopiedText(text))
     showCopyToast.value = true
     setTimeout(() => {
       showCopyToast.value = false
