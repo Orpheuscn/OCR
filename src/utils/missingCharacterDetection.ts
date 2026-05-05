@@ -66,6 +66,7 @@ const DEFAULT_CHAR_HEIGHT = 15
 const GROUP_THRESHOLD_RATIO = 0.75
 const MAX_SYMBOL_OVERLAP_RATIO = 0.25
 
+// 根据OCR结果、文本方向和语言类型检测疑似缺失字符的位置。
 export function detectMissingCharacterBoxes(
   fullTextAnnotation: FullTextAnnotation | null | undefined,
   textDirection: TextDirection,
@@ -94,6 +95,7 @@ export function detectMissingCharacterBoxes(
   return filterBoxesOverlappingSymbols(boxes, allSymbols)
 }
 
+// 从全文OCR结果中提取每个段落及其字符坐标数据。
 function extractParagraphSymbols(fullTextAnnotation: FullTextAnnotation): ParagraphSymbols[] {
   const paragraphs: ParagraphSymbols[] = []
 
@@ -117,6 +119,7 @@ function extractParagraphSymbols(fullTextAnnotation: FullTextAnnotation): Paragr
   return paragraphs
 }
 
+// 从单个段落中提取所有字符的边界框和中心点。
 function extractSymbols(paragraph: Paragraph): SymbolBox[] {
   const symbols: SymbolBox[] = []
 
@@ -138,6 +141,7 @@ function extractSymbols(paragraph: Paragraph): SymbolBox[] {
   return symbols
 }
 
+// 计算段落内非标点字符的平均宽度、高度和面积。
 function calculateCharacterMetrics(symbols: SymbolBox[]): CharacterMetrics | null {
   const characterSymbols = symbols.filter((symbol) => {
     return !isPunctuation(symbol.text) && symbol.width > 0 && symbol.height > 0
@@ -156,6 +160,7 @@ function calculateCharacterMetrics(symbols: SymbolBox[]): CharacterMetrics | nul
   }
 }
 
+// 检测竖排段落内部每一列中的疑似缺字空隙。
 function detectVerticalInParagraphGaps(paragraphs: ParagraphSymbols[]): MissingCharacterBox[] {
   const boxes: MissingCharacterBox[] = []
 
@@ -220,6 +225,7 @@ function detectVerticalInParagraphGaps(paragraphs: ParagraphSymbols[]): MissingC
   return boxes
 }
 
+// 检测横排段落内部每一行中的疑似缺字空隙。
 function detectHorizontalInParagraphGaps(paragraphs: ParagraphSymbols[]): MissingCharacterBox[] {
   const boxes: MissingCharacterBox[] = []
 
@@ -284,6 +290,7 @@ function detectHorizontalInParagraphGaps(paragraphs: ParagraphSymbols[]): Missin
   return boxes
 }
 
+// 判断竖排列尾后方是否存在同页平行文本延续。
 function hasVerticalParallelContinuation(
   paragraphs: ParagraphSymbols[],
   currentParagraph: ParagraphSymbols,
@@ -301,6 +308,7 @@ function hasVerticalParallelContinuation(
   })
 }
 
+// 判断横排行尾后方是否存在同页平行文本延续。
 function hasHorizontalParallelContinuation(
   paragraphs: ParagraphSymbols[],
   currentParagraph: ParagraphSymbols,
@@ -318,6 +326,7 @@ function hasHorizontalParallelContinuation(
   })
 }
 
+// 按X坐标把竖排字符分组成从右到左的列。
 function groupVerticalColumns(symbols: SymbolBox[], metrics: CharacterMetrics): VerticalColumn[] {
   const threshold = metrics.avgWidth * GROUP_THRESHOLD_RATIO
   const sortedSymbols = [...symbols].sort((a, b) => {
@@ -341,6 +350,7 @@ function groupVerticalColumns(symbols: SymbolBox[], metrics: CharacterMetrics): 
     .sort((a, b) => b.avgX - a.avgX)
 }
 
+// 按Y坐标把横排字符分组成从上到下的行。
 function groupHorizontalRows(symbols: SymbolBox[], metrics: CharacterMetrics): HorizontalRow[] {
   const threshold = metrics.avgHeight * GROUP_THRESHOLD_RATIO
   const sortedSymbols = [...symbols].sort((a, b) => {
@@ -364,6 +374,7 @@ function groupHorizontalRows(symbols: SymbolBox[], metrics: CharacterMetrics): H
     .sort((a, b) => a.avgY - b.avgY)
 }
 
+// 按给定中心轴和阈值把已排序字符连续分组。
 function groupByRunningAxis(
   symbols: SymbolBox[],
   threshold: number,
@@ -398,6 +409,7 @@ function groupByRunningAxis(
   return groups
 }
 
+// 根据竖向空隙生成一个或多个缺字红框。
 function createVerticalGapBoxes({
   gapStart,
   gapSize,
@@ -433,6 +445,7 @@ function createVerticalGapBoxes({
   }))
 }
 
+// 根据横向空隙生成一个或多个缺字红框。
 function createHorizontalGapBoxes({
   gapStart,
   gapSize,
@@ -468,6 +481,7 @@ function createHorizontalGapBoxes({
   }))
 }
 
+// 过滤掉和已有字符坐标重叠过高的候选红框。
 function filterBoxesOverlappingSymbols(
   boxes: MissingCharacterBox[],
   symbols: SymbolBox[],
@@ -485,12 +499,14 @@ function filterBoxesOverlappingSymbols(
   })
 }
 
+// 计算两个矩形边界框的重叠面积。
 function calculateOverlapArea(first: Bounds, second: Bounds): number {
   const overlapWidth = Math.max(0, Math.min(first.right, second.right) - Math.max(first.left, second.left))
   const overlapHeight = Math.max(0, Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top))
   return overlapWidth * overlapHeight
 }
 
+// 将缺字红框转换为通用边界框结构。
 function toBounds(box: MissingCharacterBox): Bounds {
   return {
     x: box.x,
@@ -504,6 +520,7 @@ function toBounds(box: MissingCharacterBox): Bounds {
   }
 }
 
+// 根据Google Vision顶点数组计算矩形边界框。
 function boundsFromVertices(vertices: Vertex[] | undefined): Bounds | null {
   if (!vertices || vertices.length === 0) return null
 
@@ -528,16 +545,19 @@ function boundsFromVertices(vertices: Vertex[] | undefined): Bounds | null {
   }
 }
 
+// 判断文本是否全部由标点、符号或空白组成。
 function isPunctuation(text: string): boolean {
   return /^[\p{P}\p{S}\s]+$/u.test(text)
 }
 
+// 计算有限数字数组的平均值。
 function average(values: number[]): number {
   const validValues = values.filter(isFiniteNumber)
   if (validValues.length === 0) return 0
   return validValues.reduce((sum, value) => sum + value, 0) / validValues.length
 }
 
+// 判断输入是否为有限数字。
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
