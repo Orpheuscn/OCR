@@ -30,6 +30,11 @@
             {{ showBounds ? '隐藏边界' : '显示边界' }}
           </button>
 
+          <!-- 显示/隐藏缺字红框 -->
+          <button class="btn btn-sm" @click="showMissingBoxes = !showMissingBoxes">
+            {{ showMissingBoxes ? '隐藏红框' : '显示红框' }}
+          </button>
+
           <!-- 关闭按钮 -->
           <button class="btn btn-sm btn-circle btn-ghost" @click="closeCoordinateView">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -70,6 +75,21 @@
             >
               <title>{{ boundary.tooltip }}</title>
             </polygon>
+
+            <rect
+              v-if="showMissingBoxes"
+              v-for="(box, index) in missingCharacterBoxes"
+              :key="`missing-${index}`"
+              :x="box.x"
+              :y="box.y"
+              :width="box.width"
+              :height="box.height"
+              fill="rgba(239, 68, 68, 0.15)"
+              stroke="rgb(239, 68, 68)"
+              stroke-width="2"
+            >
+              <title>段落内疑似缺字</title>
+            </rect>
           </svg>
 
           <!-- 文字符号 -->
@@ -108,6 +128,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useCoordinateStore } from '@/stores/coordinateStore'
+import { useOcrStore } from '@/stores/ocrStore'
+import { detectMissingCharacterBoxes } from '@/utils/missingCharacterDetection'
+import { getDetectedLanguageCode } from '@/utils/textProcessors'
+import type { FullTextAnnotation } from '@/types/ocr'
 
 // Props
 interface Props {
@@ -126,12 +150,14 @@ interface Emits {
 const emit = defineEmits<Emits>()
 
 const coordinateStore = useCoordinateStore()
+const ocrStore = useOcrStore()
 
 // 状态
 const containerRef = ref<HTMLElement | null>(null)
 const zoomLevel = ref(1)
 const selectedBlockLevel = ref<'blocks' | 'paragraphs' | 'words' | 'symbols'>('blocks')
 const showBounds = ref(true)
+const showMissingBoxes = ref(true)
 const showCopyToast = ref(false)
 const isDarkMode = ref(false)
 
@@ -146,6 +172,17 @@ const systemHeight = computed(() => coordinateStore.imageDimensions.height || 60
 
 const blockBoundaries = computed(() => {
   return coordinateStore.getBlockBoundaries(selectedBlockLevel.value)
+})
+
+const missingCharacterBoxes = computed(() => {
+  const fullTextAnnotation = ocrStore.result?.fullTextAnnotation
+  if (!fullTextAnnotation) return []
+
+  return detectMissingCharacterBoxes(
+    fullTextAnnotation as FullTextAnnotation,
+    ocrStore.textDirection,
+    getDetectedLanguageCode()
+  )
 })
 
 const displaySymbols = computed(() => {
@@ -213,4 +250,3 @@ const closeCoordinateView = () => {
   emit('update:isOpen', false)
 }
 </script>
-
