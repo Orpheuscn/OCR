@@ -3,36 +3,35 @@
     <div class="card bg-base-200 shadow-lg border border-accent border-opacity-20 h-full">
       <div class="card-body p-4 h-full">
         <div class="h-full flex items-center justify-between">
-
           <!-- 左侧：方向选择单选框 -->
           <div class="flex flex-col gap-2">
             <div class="text-sm font-medium text-base-content mb-2">识别方向：</div>
             <div class="flex gap-4">
-              <label 
+              <label
                 class="cursor-pointer label gap-2"
                 :class="{ 'opacity-50 cursor-not-allowed': isDirectionSelectionDisabled }"
               >
-                <input 
-                  type="radio" 
-                  name="direction" 
-                  value="horizontal" 
+                <input
+                  type="radio"
+                  name="direction"
+                  value="horizontal"
                   v-model="ocrStore.textDirection"
                   :disabled="isDirectionSelectionDisabled"
-                  class="radio radio-accent" 
+                  class="radio radio-accent"
                 />
                 <span class="label-text">横排</span>
               </label>
-              <label 
+              <label
                 class="cursor-pointer label gap-2"
                 :class="{ 'opacity-50 cursor-not-allowed': isDirectionSelectionDisabled }"
               >
-                <input 
-                  type="radio" 
-                  name="direction" 
-                  value="vertical" 
+                <input
+                  type="radio"
+                  name="direction"
+                  value="vertical"
                   v-model="ocrStore.textDirection"
                   :disabled="isDirectionSelectionDisabled"
-                  class="radio radio-accent" 
+                  class="radio radio-accent"
                 />
                 <span class="label-text">竖排</span>
               </label>
@@ -44,14 +43,21 @@
             <label class="label">
               <span class="label-text text-sm font-medium">识别语言:</span>
               <span class="label-text-alt text-xs">
-                <button class="btn btn-xs btn-ghost" @click="clearLanguages" :disabled="notificationStore.isLoading">
+                <button
+                  class="btn btn-xs btn-ghost"
+                  @click="clearLanguages"
+                  :disabled="notificationStore.isLoading"
+                >
                   清空
                 </button>
               </span>
             </label>
             <div class="relative w-full" ref="dropdownRef">
               <button
-                :class="['btn btn-sm w-full justify-start', notificationStore.isLoading ? 'btn-disabled' : '']"
+                :class="[
+                  'btn btn-sm w-full justify-start',
+                  notificationStore.isLoading ? 'btn-disabled' : '',
+                ]"
                 :disabled="notificationStore.isLoading"
                 @click.stop="toggleDropdown"
               >
@@ -106,35 +112,16 @@
           </div>
 
           <!-- 右侧：开始识别按钮 -->
-          <div class="flex gap-2">
-            <button
-              @click="startRecognition"
-              :disabled="!canStartRecognition"
-              class="btn btn-accent btn-lg gap-2 shadow-lg hover:shadow-xl transition-all duration-200"
-            >
-              {{ notificationStore.isLoading ? '识别中...' : '开始识别' }}
-            </button>
-
-            <!-- PDF全页识别按钮 - 仅在PDF模式且有多页时显示 -->
-            <button
-              v-if="canRecognizeAllPages"
-              @click="recognizeAllPages"
-              :disabled="!canStartRecognition || isRecognizingAllPages"
-              class="btn btn-accent btn-lg gap-2 shadow-lg hover:shadow-xl transition-all duration-200"
-            >
-              {{ isRecognizingAllPages ? `识别中 (${allPagesProgress.current}/${allPagesProgress.total})` : '识别全部页面' }}
-            </button>
-          </div>
+          <button
+            @click="startRecognition"
+            :disabled="!canStartRecognition"
+            class="btn btn-accent btn-lg gap-2 shadow-lg hover:shadow-xl transition-all duration-200"
+          >
+            {{ notificationStore.isLoading ? '识别中...' : '开始识别' }}
+          </button>
         </div>
       </div>
     </div>
-
-    <!-- PDF全页识别结果对话框 -->
-    <PdfFullTextDialog
-      v-model:is-open="showPdfFullTextDialog"
-      :pages-annotations="pdfPagesAnnotations"
-      :total-pages="pdfStore.totalPages"
-    />
   </div>
 </template>
 
@@ -148,8 +135,6 @@ import { useApiKeyStore } from '@/stores/apiKeyStore'
 import { useCoordinateStore } from '@/stores/coordinateStore'
 import { ocrService, type APIError } from '@/services/ocrService'
 import languagesData from '@/assets/languages.json'
-import { PdfProcessor } from '@/utils/pdfConverter'
-import PdfFullTextDialog from './PdfFullTextDialog.vue'
 
 // Store
 const imageStore = useImageStore()
@@ -170,7 +155,7 @@ const dropdownRef = ref<HTMLElement>()
 const initializeLanguages = () => {
   const languages = Object.entries(languagesData).map(([code, data]) => ({
     code,
-    name: data.zh // 使用中文名称
+    name: data.zh, // 使用中文名称
   }))
   filteredLanguages.value = languages
 }
@@ -180,15 +165,15 @@ const filterLanguages = () => {
   const search = languageSearch.value.toLowerCase()
   const languages = Object.entries(languagesData).map(([code, data]) => ({
     code,
-    name: data.zh
+    name: data.zh,
   }))
-  
+
   if (!search) {
     filteredLanguages.value = languages
   } else {
-    filteredLanguages.value = languages.filter(lang => 
-      lang.name.toLowerCase().includes(search) || 
-      lang.code.toLowerCase().includes(search)
+    filteredLanguages.value = languages.filter(
+      (lang) =>
+        lang.name.toLowerCase().includes(search) || lang.code.toLowerCase().includes(search),
     )
   }
 }
@@ -201,7 +186,7 @@ const toggleDropdown = () => {
 // 切换语言选择
 const toggleLanguage = (code: string) => {
   if (selectedLanguages.value.includes(code)) {
-    selectedLanguages.value = selectedLanguages.value.filter(lang => lang !== code)
+    selectedLanguages.value = selectedLanguages.value.filter((lang) => lang !== code)
   } else {
     selectedLanguages.value.push(code)
   }
@@ -217,11 +202,11 @@ const selectedLanguagesDisplay = computed(() => {
   if (selectedLanguages.value.length === 0) {
     return '选择语言'
   }
-  
-  const languageNames = selectedLanguages.value.map(code => {
+
+  const languageNames = selectedLanguages.value.map((code) => {
     return languagesData[code as keyof typeof languagesData]?.zh || code
   })
-  
+
   if (languageNames.length === 1) {
     return languageNames[0]
   } else {
@@ -236,20 +221,10 @@ const isDirectionSelectionDisabled = computed(() => {
 
 // 计算属性：是否可以开始识别
 const canStartRecognition = computed(() => {
-  const hasImage = imageStore.editedImageData || imageStore.currentImage || pdfStore.currentPdfPageImage
+  const hasImage =
+    imageStore.editedImageData || imageStore.currentImage || pdfStore.currentPdfPageImage
   const notLoading = !notificationStore.isLoading
   return hasImage && notLoading
-})
-
-// PDF全页识别相关状态
-const isRecognizingAllPages = ref(false)
-const allPagesProgress = ref({ current: 0, total: 0 })
-const showPdfFullTextDialog = ref(false)
-const pdfPagesAnnotations = ref<any[]>([])
-
-// 计算属性：是否可以识别全部页面（仅PDF模式且有多页）
-const canRecognizeAllPages = computed(() => {
-  return pdfStore.isPdfMode && pdfStore.totalPages > 1
 })
 
 // 开始识别
@@ -277,10 +252,18 @@ const startRecognition = async () => {
     // 优先使用编辑后的图片数据
     if (imageStore.editedImageData) {
       // 使用编辑后的图片数据进行识别
-      result = await ocrService.recognizeFromDataURL(imageStore.editedImageData, apiKey, languageHints)
+      result = await ocrService.recognizeFromDataURL(
+        imageStore.editedImageData,
+        apiKey,
+        languageHints,
+      )
     } else if (pdfStore.isPdfMode && pdfStore.currentPdfPageImage) {
       // PDF模式下使用当前PDF页面图片
-      result = await ocrService.recognizeFromImage(pdfStore.currentPdfPageImage, apiKey, languageHints)
+      result = await ocrService.recognizeFromImage(
+        pdfStore.currentPdfPageImage,
+        apiKey,
+        languageHints,
+      )
     } else if (imageStore.currentImage) {
       // 使用当前图片
       result = await ocrService.recognizeFromImage(imageStore.currentImage, apiKey, languageHints)
@@ -302,18 +285,17 @@ const startRecognition = async () => {
       } else if (pdfStore.isPdfMode && pdfStore.currentPdfPageImage) {
         coordinateStore.setImageDimensions(
           pdfStore.currentPdfPageImage.width,
-          pdfStore.currentPdfPageImage.height
+          pdfStore.currentPdfPageImage.height,
         )
       } else if (imageStore.currentImage) {
         coordinateStore.setImageDimensions(
           imageStore.currentImage.width,
-          imageStore.currentImage.height
+          imageStore.currentImage.height,
         )
       }
     } else {
       throw new Error(result.error || '识别失败')
     }
-
   } catch (error) {
     notificationStore.isLoading = false
 
@@ -322,90 +304,6 @@ const startRecognition = async () => {
 
     notificationStore.showError('识别失败', errorMessage)
     console.error('OCR识别错误:', error)
-  }
-}
-
-// 识别PDF所有页面
-const recognizeAllPages = async () => {
-  if (!canStartRecognition.value || !pdfStore.isPdfMode) return
-
-  // 检查是否有 API Key
-  if (!apiKeyStore.hasApiKey) {
-    notificationStore.showError('未配置 API Key', '请先配置 Google Cloud Vision API Key')
-    return
-  }
-
-  // 从 pdfStore 获取当前PDF文件
-  const pdfFile = pdfStore.currentPdfFile
-  if (!pdfFile) {
-    notificationStore.showError('错误', '未找到PDF文件')
-    return
-  }
-
-  try {
-    isRecognizingAllPages.value = true
-    notificationStore.isLoading = true
-
-    const totalPages = pdfStore.totalPages
-    allPagesProgress.value = { current: 0, total: totalPages }
-
-    // 创建独立的 PDF 处理器
-    const processor = new PdfProcessor(2.0)
-    await processor.loadPdf(pdfFile)
-
-    // 准备语言提示
-    const languageHints = selectedLanguages.value.length > 0 ? selectedLanguages.value : undefined
-    const apiKey = apiKeyStore.apiKey
-
-    // 存储所有页面的识别结果
-    const allPagesResults: any[] = []
-
-    // 循环处理每一页
-    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-      allPagesProgress.value.current = pageNum
-      notificationStore.loadingMessage = `正在识别第 ${pageNum}/${totalPages} 页...`
-
-      // 渲染当前页
-      const pageResult = await processor.renderPage(pageNum)
-
-      // 将页面图片转换为 HTMLImageElement
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const image = new Image()
-        image.onload = () => resolve(image)
-        image.onerror = reject
-        image.src = URL.createObjectURL(pageResult.imageFile)
-      })
-
-      // 识别当前页
-      const result = await ocrService.recognizeFromImage(img, apiKey, languageHints)
-
-      if (result.success && result.fullTextAnnotation) {
-        // 保存完整的识别结果
-        allPagesResults.push(result.fullTextAnnotation)
-      }
-
-      // 清理 URL 对象
-      URL.revokeObjectURL(img.src)
-    }
-
-    // 清理 PDF 处理器
-    processor.cleanup()
-
-    // 保存所有页面的 fullTextAnnotation 数组并显示对话框
-    pdfPagesAnnotations.value = allPagesResults
-    showPdfFullTextDialog.value = true
-
-    notificationStore.showSuccess('识别完成', `成功识别 ${totalPages} 页PDF文档`)
-
-  } catch (error) {
-    const apiError = error as APIError
-    const errorMessage = apiError.message || '识别过程中发生错误'
-    notificationStore.showError('识别失败', errorMessage)
-    console.error('PDF全页识别错误:', error)
-  } finally {
-    isRecognizingAllPages.value = false
-    allPagesProgress.value = { current: 0, total: 0 }
-    notificationStore.isLoading = false
   }
 }
 
