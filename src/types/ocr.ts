@@ -70,4 +70,8 @@ export interface ProcessedSymbol {
   x: number
   y: number
   originalIndex: number
-} 
+  pageIndex?: number
+  blockIndex?: number
+  paragraphIndex?: number
+  isMissingPlaceholder?: boolean
+}

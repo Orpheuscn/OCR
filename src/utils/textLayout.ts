@@ -17,6 +17,10 @@ interface SymbolData {
   x: number
   y: number
   originalIndex?: number
+  pageIndex?: number
+  blockIndex?: number
+  paragraphIndex?: number
+  isMissingPlaceholder?: boolean
 }
 
 interface FullTextAnnotation {
@@ -40,17 +44,145 @@ interface FullTextAnnotation {
   }>
 }
 
-
-
 // 导入textProcessors中的函数
-import { 
-  processSymbolText, 
-  shouldSkipSymbol, 
-  cleanTextSpaces, 
-  cleanLineBreaks, 
-  checkLanguageCategory, 
-  processPunctuation
+import {
+  processSymbolText,
+  shouldSkipSymbol,
+  cleanTextSpaces,
+  cleanLineBreaks,
+  checkLanguageCategory,
+  processPunctuation,
 } from '@/utils/textProcessors'
+
+const GROUP_THRESHOLD_RATIO = 0.75
+
+function hasMissingPlaceholders(symbols: SymbolData[]): boolean {
+  return symbols.some((symbol) => symbol.isMissingPlaceholder)
+}
+
+function average(values: number[]): number {
+  const validValues = values.filter((value) => Number.isFinite(value))
+  if (validValues.length === 0) return 0
+  return validValues.reduce((sum, value) => sum + value, 0) / validValues.length
+}
+
+function getAverageCharWidth(symbols: SymbolData[]): number {
+  const validSymbols = symbols.filter((symbol) => symbol.width > 0 && Number.isFinite(symbol.width))
+  const widthsPerChar = validSymbols
+    .filter((symbol) => symbol.text?.length > 0 && !symbol.isMissingPlaceholder)
+    .map((symbol) => symbol.width / symbol.text.length)
+
+  if (widthsPerChar.length > 0) return average(widthsPerChar)
+  if (validSymbols.length > 0) return average(validSymbols.map((symbol) => symbol.width))
+  return 15
+}
+
+function getAverageCharHeight(symbols: SymbolData[]): number {
+  const validSymbols = symbols.filter(
+    (symbol) => symbol.height > 0 && Number.isFinite(symbol.height),
+  )
+  if (validSymbols.length > 0) return average(validSymbols.map((symbol) => symbol.height))
+  return 15
+}
+
+function processDisplaySymbol(symbol: SymbolData, languageCode: string): string {
+  if (symbol.isMissingPlaceholder) return symbol.text
+
+  const { processedText } = processSymbolText(symbol.text, languageCode, symbol.detectedBreak?.type)
+  return processedText
+}
+
+function groupByRunningAxis<T extends SymbolData>(
+  symbols: T[],
+  threshold: number,
+  axis: 'midX' | 'midY',
+): T[][] {
+  const groups: T[][] = []
+  let currentGroup: T[] = []
+  let currentAxis = 0
+
+  symbols.forEach((symbol) => {
+    if (currentGroup.length === 0) {
+      currentGroup = [symbol]
+      currentAxis = symbol[axis]
+      return
+    }
+
+    if (Math.abs(symbol[axis] - currentAxis) < threshold) {
+      currentGroup.push(symbol)
+      currentAxis = average(currentGroup.map((item) => item[axis]))
+      return
+    }
+
+    groups.push(currentGroup)
+    currentGroup = [symbol]
+    currentAxis = symbol[axis]
+  })
+
+  if (currentGroup.length > 0) {
+    groups.push(currentGroup)
+  }
+
+  return groups
+}
+
+function processHorizontalTextByCoordinates(symbols: SymbolData[], languageCode: string): string {
+  const processedSymbols = symbols
+    .filter((symbol) => symbol.isFiltered)
+    .map((symbol) => ({
+      ...symbol,
+      text: processDisplaySymbol(symbol, languageCode),
+    }))
+
+  if (processedSymbols.length === 0) return ''
+
+  const rowThreshold = getAverageCharHeight(processedSymbols) * GROUP_THRESHOLD_RATIO
+  const sortedSymbols = [...processedSymbols].sort((a, b) => {
+    const rowDiff = Math.abs(a.midY - b.midY)
+    if (rowDiff > rowThreshold) return a.midY - b.midY
+    return a.midX - b.midX
+  })
+
+  const rows = groupByRunningAxis(sortedSymbols, rowThreshold, 'midY')
+    .map((rowSymbols) => [...rowSymbols].sort((a, b) => a.midX - b.midX))
+    .sort(
+      (a, b) => average(a.map((symbol) => symbol.midY)) - average(b.map((symbol) => symbol.midY)),
+    )
+
+  return rows.map((row) => row.map((symbol) => symbol.text).join('')).join('\n')
+}
+
+function processVerticalTextByCoordinates(
+  symbols: SymbolData[],
+  languageCode: string,
+  joinColumnsWithNewline: boolean,
+): string {
+  const processedSymbols = symbols
+    .filter((symbol) => symbol.isFiltered)
+    .map((symbol) => ({
+      ...symbol,
+      text: processDisplaySymbol(symbol, languageCode),
+    }))
+
+  if (processedSymbols.length === 0) return ''
+
+  const columnThreshold = getAverageCharWidth(processedSymbols) * GROUP_THRESHOLD_RATIO
+  const sortedSymbols = [...processedSymbols].sort((a, b) => {
+    const colDiff = Math.abs(a.midX - b.midX)
+    if (colDiff > columnThreshold) return b.midX - a.midX
+    return a.midY - b.midY
+  })
+
+  const columns = groupByRunningAxis(sortedSymbols, columnThreshold, 'midX')
+    .map((columnSymbols) => [...columnSymbols].sort((a, b) => a.midY - b.midY))
+    .sort(
+      (a, b) => average(b.map((symbol) => symbol.midX)) - average(a.map((symbol) => symbol.midX)),
+    )
+
+  return columns
+    .map((column) => column.map((symbol) => symbol.text).join(''))
+    .join(joinColumnsWithNewline ? '\n' : '')
+}
 
 /**
  * 处理水平并行模式的文本
@@ -76,14 +208,19 @@ export function processHorizontalParallelText(
   // 检查是否有原始文本并且所有符号都被过滤
   const hasOriginalText = fullTextAnnotation?.text && typeof fullTextAnnotation.text === 'string'
   const allSymbolsFiltered = filteredSymbolsData.every((symbol) => symbol.isFiltered)
+  const includesMissingPlaceholders = hasMissingPlaceholders(filteredSymbolsData)
 
   // 如果有原始文本并且所有符号都被过滤，直接使用原始文本
-  if (hasOriginalText && allSymbolsFiltered) {
+  if (hasOriginalText && allSymbolsFiltered && !includesMissingPlaceholders) {
     // 只在无空格语言时进行标点替换
     if (checkLanguageCategory(languageCode, 'no_space')) {
       return processPunctuation(fullTextAnnotation.text || '', languageCode)
     }
     return fullTextAnnotation.text || ''
+  }
+
+  if (includesMissingPlaceholders) {
+    return processHorizontalTextByCoordinates(filteredSymbolsData, languageCode)
   }
 
   // 否则处理过滤后的符号
@@ -137,6 +274,42 @@ export function processHorizontalParagraphText(
       filteredSymbolsData,
     )
     return ''
+  }
+
+  if (hasMissingPlaceholders(filteredSymbolsData)) {
+    const paragraphOutputs: Array<{ text: string; y: number }> = []
+    const paragraphGroups = new Map<string, SymbolData[]>()
+
+    filteredSymbolsData
+      .filter((symbol) => symbol.isFiltered)
+      .forEach((symbol) => {
+        const key = [
+          symbol.pageIndex ?? 0,
+          symbol.blockIndex ?? 0,
+          symbol.paragraphIndex ?? 0,
+        ].join('-')
+        const group = paragraphGroups.get(key) ?? []
+        group.push(symbol)
+        paragraphGroups.set(key, group)
+      })
+
+    paragraphGroups.forEach((symbolsInParagraph) => {
+      const text = processHorizontalTextByCoordinates(symbolsInParagraph, languageCode).replace(
+        /\n/g,
+        '',
+      )
+      if (!text) return
+
+      paragraphOutputs.push({
+        text,
+        y: Math.min(...symbolsInParagraph.map((symbol) => symbol.y).filter(Number.isFinite)),
+      })
+    })
+
+    return paragraphOutputs
+      .sort((a, b) => a.y - b.y)
+      .map((paragraph) => paragraph.text)
+      .join('\n\n')
   }
 
   const paragraphsOutput: Array<{ text: string; y: number }> = []
@@ -243,6 +416,14 @@ export function processVerticalParallelText(
 ): string {
   if (!symbols || symbols.length === 0) return ''
 
+  if (hasMissingPlaceholders(symbols)) {
+    return processVerticalTextByCoordinates(
+      isFiltered ? symbols.filter((symbol) => symbol.isFiltered) : symbols,
+      languageCode,
+      true,
+    )
+  }
+
   // 创建一个新数组，不修改原始数据
   const processedSymbols = symbols
     .filter((symbol) => !isFiltered || symbol.isFiltered)
@@ -345,6 +526,39 @@ export function processVerticalParagraphText(
       filteredSymbolsData,
     )
     return ''
+  }
+
+  if (hasMissingPlaceholders(filteredSymbolsData)) {
+    const paragraphs: Array<{ text: string; x: number }> = []
+    const paragraphGroups = new Map<string, SymbolData[]>()
+
+    filteredSymbolsData
+      .filter((symbol) => symbol.isFiltered)
+      .forEach((symbol) => {
+        const key = [
+          symbol.pageIndex ?? 0,
+          symbol.blockIndex ?? 0,
+          symbol.paragraphIndex ?? 0,
+        ].join('-')
+        const group = paragraphGroups.get(key) ?? []
+        group.push(symbol)
+        paragraphGroups.set(key, group)
+      })
+
+    paragraphGroups.forEach((symbolsInParagraph) => {
+      const text = processVerticalTextByCoordinates(symbolsInParagraph, languageCode, false)
+      if (!text) return
+
+      paragraphs.push({
+        text,
+        x: Math.min(...symbolsInParagraph.map((symbol) => symbol.x).filter(Number.isFinite)),
+      })
+    })
+
+    return paragraphs
+      .sort((a, b) => b.x - a.x)
+      .map((paragraph) => paragraph.text)
+      .join('\n\n')
   }
 
   // 辅助函数，计算平均字符宽度
@@ -476,4 +690,4 @@ export function processVerticalParagraphText(
 
   // 用双换行符连接段落
   return paragraphs.map((p) => p.text).join('\n\n')
-} 
+}

@@ -7,22 +7,22 @@
           <div class="text-sm font-medium text-base-content">排版方式：</div>
           <div class="flex gap-6">
             <label class="cursor-pointer label gap-2">
-              <input 
-                type="radio" 
-                name="layout-mode" 
-                value="original" 
+              <input
+                type="radio"
+                name="layout-mode"
+                value="original"
                 v-model="layoutMode"
-                class="radio radio-accent radio-sm" 
+                class="radio radio-accent radio-sm"
               />
               <span class="label-text">原始排版</span>
             </label>
             <label class="cursor-pointer label gap-2">
-              <input 
-                type="radio" 
-                name="layout-mode" 
-                value="paragraph" 
+              <input
+                type="radio"
+                name="layout-mode"
+                value="paragraph"
                 v-model="layoutMode"
-                class="radio radio-accent radio-sm" 
+                class="radio radio-accent radio-sm"
               />
               <span class="label-text">分段排版</span>
             </label>
@@ -30,30 +30,39 @@
         </div>
 
         <!-- 顶部信息区域 - 新的现代化设计 -->
-        <div v-if="displayText" class="flex items-center justify-between mb-6 p-4 bg-gradient-to-r from-accent/10 to-accent/5 rounded-xl border border-accent/20 backdrop-blur-sm">
+        <div
+          v-if="displayText"
+          class="flex items-center justify-between mb-6 p-4 bg-gradient-to-r from-accent/10 to-accent/5 rounded-xl border border-accent/20 backdrop-blur-sm"
+        >
           <div class="flex items-center gap-8">
             <!-- 字符数 -->
             <div class="flex flex-col items-center">
-              <div class="text-2xl font-bold text-accent mb-1">{{ characterCount.toLocaleString() }}</div>
+              <div class="text-2xl font-bold text-accent mb-1">
+                {{ characterCount.toLocaleString() }}
+              </div>
               <div class="text-xs text-base-content/60 font-medium">字符数</div>
             </div>
-            
+
             <!-- 识别语言 -->
             <div v-if="detectedLanguage" class="flex flex-col items-center">
               <div class="text-lg font-bold text-primary mb-1">{{ detectedLanguage }}</div>
               <div class="text-xs text-base-content/60 font-medium">识别语言</div>
             </div>
-            
+
             <!-- 置信度 -->
             <div v-if="confidence !== null" class="flex flex-col items-center">
               <div class="flex items-center gap-2 mb-1">
                 <div class="text-lg font-bold text-success">{{ confidence }}%</div>
-                <div class="radial-progress text-success" :style="`--value:${confidence}; --size:1.5rem; --thickness: 2px;`" role="progressbar"></div>
+                <div
+                  class="radial-progress text-success"
+                  :style="`--value:${confidence}; --size:1.5rem; --thickness: 2px;`"
+                  role="progressbar"
+                ></div>
               </div>
               <div class="text-xs text-base-content/60 font-medium">识别准确度</div>
             </div>
           </div>
-          
+
           <div class="flex items-center gap-2">
             <!-- JSON下载按钮 -->
             <button
@@ -69,32 +78,45 @@
               @click="copyToClipboard"
               :disabled="copying"
               class="btn btn-accent btn-sm gap-2 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 border-0"
-              :class="{ 'loading': copying }"
+              :class="{ loading: copying }"
             >
-              <svg v-if="!copying" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              <svg
+                v-if="!copying"
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
               </svg>
               {{ copying ? '复制中...' : '复制' }}
             </button>
           </div>
         </div>
-        
+
         <div class="flex-1 overflow-hidden">
           <!-- 识别结果 -->
           <div v-if="displayText" class="h-full flex flex-col">
             <!-- 文本内容 -->
-            <div 
+            <div
               class="flex-1 text-container"
               :class="textContainerConfig.classes"
               :style="textContainerConfig.styles"
             >
-              <pre 
+              <pre
                 class="text-content text-sm leading-relaxed text-base-content p-4"
                 :class="{
                   'whitespace-pre-wrap break-words': !textContainerConfig.isVertical,
-                  'whitespace-pre': textContainerConfig.isVertical
+                  'whitespace-pre': textContainerConfig.isVertical,
                 }"
-              >{{ displayText }}</pre>
+                >{{ displayText }}</pre
+              >
             </div>
           </div>
         </div>
@@ -108,15 +130,25 @@ import { ref, computed } from 'vue'
 import { useOcrStore } from '@/stores/ocrStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { processPunctuation, getDetectedLanguageCode } from '@/utils/textProcessors'
-import { 
+import {
   processHorizontalParallelText,
   processHorizontalParagraphText,
   processVerticalParallelText,
-  processVerticalParagraphText
+  processVerticalParagraphText,
 } from '@/utils/textLayout'
 import { getTextContainerConfig } from '@/utils/textUI'
+import { detectMissingCharacterBoxes } from '@/utils/missingCharacterDetection'
 import languageMap from '@/assets/languages.json'
-import type { FullTextAnnotation, ProcessedSymbol, Page, Block, Paragraph, Word, Symbol, Vertex } from '@/types/ocr'
+import type {
+  FullTextAnnotation,
+  ProcessedSymbol,
+  Page,
+  Block,
+  Paragraph,
+  Word,
+  Symbol,
+  Vertex,
+} from '@/types/ocr'
 
 // Store
 const ocrStore = useOcrStore()
@@ -129,14 +161,14 @@ const layoutMode = ref<'original' | 'paragraph'>('original')
 // 辅助函数：从OCR结果中提取符号数据
 const extractSymbolsData = (fullTextAnnotation: FullTextAnnotation): ProcessedSymbol[] => {
   const symbolsData: ProcessedSymbol[] = []
-  
+
   if (!fullTextAnnotation?.pages) return symbolsData
-  
+
   let originalIndex = 0
-  
-  fullTextAnnotation.pages.forEach((page: Page) => {
-    page.blocks?.forEach((block: Block) => {
-      block.paragraphs?.forEach((paragraph: Paragraph) => {
+
+  fullTextAnnotation.pages.forEach((page: Page, pageIndex: number) => {
+    page.blocks?.forEach((block: Block, blockIndex: number) => {
+      block.paragraphs?.forEach((paragraph: Paragraph, paragraphIndex: number) => {
         paragraph.words?.forEach((word: Word) => {
           word.symbols?.forEach((symbol: Symbol) => {
             if (symbol.text && symbol.boundingBox?.vertices) {
@@ -145,7 +177,7 @@ const extractSymbolsData = (fullTextAnnotation: FullTextAnnotation): ProcessedSy
               const maxX = Math.max(...vertices.map((v: Vertex) => v?.x ?? -Infinity))
               const minY = Math.min(...vertices.map((v: Vertex) => v?.y ?? Infinity))
               const maxY = Math.max(...vertices.map((v: Vertex) => v?.y ?? -Infinity))
-              
+
               symbolsData.push({
                 text: symbol.text,
                 isFiltered: true, // 默认所有符号都被过滤
@@ -156,7 +188,10 @@ const extractSymbolsData = (fullTextAnnotation: FullTextAnnotation): ProcessedSy
                 height: maxY - minY,
                 x: minX,
                 y: minY,
-                originalIndex: originalIndex++
+                originalIndex: originalIndex++,
+                pageIndex,
+                blockIndex,
+                paragraphIndex,
               })
             }
           })
@@ -164,24 +199,64 @@ const extractSymbolsData = (fullTextAnnotation: FullTextAnnotation): ProcessedSy
       })
     })
   })
-  
+
   return symbolsData
 }
 
+const appendMissingPlaceholders = (
+  fullTextAnnotation: FullTextAnnotation,
+  symbolsData: ProcessedSymbol[],
+  direction: string,
+  languageCode: string,
+): ProcessedSymbol[] => {
+  const missingBoxes = detectMissingCharacterBoxes(
+    fullTextAnnotation,
+    direction as 'horizontal' | 'vertical',
+    languageCode,
+  )
+  if (missingBoxes.length === 0) return symbolsData
+
+  const nextOriginalIndex = symbolsData.length
+  const placeholders: ProcessedSymbol[] = missingBoxes.map((box, index) => ({
+    text: box.text,
+    isFiltered: true,
+    detectedBreak: {},
+    midX: box.midX,
+    midY: box.midY,
+    width: box.width,
+    height: box.height,
+    x: box.x,
+    y: box.y,
+    originalIndex: nextOriginalIndex + index,
+    pageIndex: box.pageIndex,
+    blockIndex: box.blockIndex,
+    paragraphIndex: box.paragraphIndex,
+    isMissingPlaceholder: true,
+  }))
+
+  return [...symbolsData, ...placeholders]
+}
+
 // 辅助函数：根据方向和排版模式处理文本
-const processTextByLayout = (fullTextAnnotation: FullTextAnnotation, filteredSymbolsData: ProcessedSymbol[], direction: string, mode: string, languageCode: string): string => {
+const processTextByLayout = (
+  fullTextAnnotation: FullTextAnnotation,
+  filteredSymbolsData: ProcessedSymbol[],
+  direction: string,
+  mode: string,
+  languageCode: string,
+): string => {
   const key = `${direction}-${mode}`
-  
+
   // 调试信息
   if (direction === 'vertical') {
     console.log('竖排模式调试信息:', {
       key,
       symbolsCount: filteredSymbolsData.length,
       hasFullText: !!fullTextAnnotation?.text,
-      fullTextLength: fullTextAnnotation?.text?.length || 0
+      fullTextLength: fullTextAnnotation?.text?.length || 0,
     })
   }
-  
+
   switch (key) {
     case 'horizontal-original':
       return processHorizontalParallelText(fullTextAnnotation, filteredSymbolsData, languageCode)
@@ -210,21 +285,22 @@ const displayText = computed(() => {
   const result = ocrStore.result
   const direction = ocrStore.textDirection
   const mode = layoutMode.value
-  
+
   if (!result?.fullTextAnnotation) return ''
-  
+
   const languageCode = getDetectedLanguageCode()
-  
+
   // 从OCR结果中提取符号数据
-  const filteredSymbolsData = extractSymbolsData(result.fullTextAnnotation as FullTextAnnotation)
-  
-  return processTextByLayout(
-    result.fullTextAnnotation as FullTextAnnotation, 
-    filteredSymbolsData, 
-    direction, 
-    mode, 
-    languageCode
+  const fullTextAnnotation = result.fullTextAnnotation as FullTextAnnotation
+  const extractedSymbolsData = extractSymbolsData(fullTextAnnotation)
+  const filteredSymbolsData = appendMissingPlaceholders(
+    fullTextAnnotation,
+    extractedSymbolsData,
+    direction,
+    languageCode,
   )
+
+  return processTextByLayout(fullTextAnnotation, filteredSymbolsData, direction, mode, languageCode)
 })
 
 // 字符数统计 - 基于处理后的文本
@@ -236,7 +312,7 @@ const characterCount = computed(() => {
 const textContainerConfig = computed(() => {
   const languageCode = getDetectedLanguageCode()
   const direction = ocrStore.textDirection
-  
+
   return getTextContainerConfig(languageCode, direction)
 })
 
@@ -252,12 +328,12 @@ const detectedLanguage = computed(() => {
     if (firstPage.property?.detectedLanguages && firstPage.property.detectedLanguages.length > 0) {
       const lang = firstPage.property.detectedLanguages[0]
       const langCode = lang.languageCode
-      
+
       // 使用外部语言映射文件
       if (languageMap[langCode as keyof typeof languageMap]) {
         return languageMap[langCode as keyof typeof languageMap].zh
       }
-      
+
       // 如果找不到映射，返回大写的语言代码
       return langCode.toUpperCase()
     }
@@ -280,7 +356,7 @@ const confidence = computed(() => {
 // 复制到剪贴板
 const copyToClipboard = async () => {
   if (!displayText.value) return
-  
+
   copying.value = true
   try {
     await navigator.clipboard.writeText(displayText.value)
@@ -375,8 +451,9 @@ const downloadJson = () => {
 
 /* 环形进度条自定义样式 */
 .radial-progress {
-  background: radial-gradient(closest-side, transparent 79%, currentColor 80% 100%),
-              conic-gradient(currentColor calc(var(--value) * 1%), transparent 0);
+  background:
+    radial-gradient(closest-side, transparent 79%, currentColor 80% 100%),
+    conic-gradient(currentColor calc(var(--value) * 1%), transparent 0);
 }
 
 /* 滚动条样式优化 */

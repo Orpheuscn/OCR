@@ -8,9 +8,13 @@ export interface MissingCharacterBox {
   y: number
   width: number
   height: number
+  midX: number
+  midY: number
   pageIndex: number
   blockIndex: number
   paragraphIndex: number
+  text: '🔴'
+  isMissingPlaceholder: true
   reason: 'in_paragraph_gap'
 }
 
@@ -171,7 +175,8 @@ function detectVerticalInParagraphGaps(paragraphs: ParagraphSymbols[]): MissingC
     const columns = groupVerticalColumns(paragraph.symbols, metrics)
     const firstParagraphSymbol = paragraph.symbols[0]
     columns.forEach((column) => {
-      const isParagraphStartColumn = !!firstParagraphSymbol && column.symbols.includes(firstParagraphSymbol)
+      const isParagraphStartColumn =
+        !!firstParagraphSymbol && column.symbols.includes(firstParagraphSymbol)
 
       if (paragraph.paragraphBounds && !isParagraphStartColumn) {
         boxes.push(
@@ -236,7 +241,8 @@ function detectHorizontalInParagraphGaps(paragraphs: ParagraphSymbols[]): Missin
     const rows = groupHorizontalRows(paragraph.symbols, metrics)
     const firstParagraphSymbol = paragraph.symbols[0]
     rows.forEach((row) => {
-      const isParagraphStartRow = !!firstParagraphSymbol && row.symbols.includes(firstParagraphSymbol)
+      const isParagraphStartRow =
+        !!firstParagraphSymbol && row.symbols.includes(firstParagraphSymbol)
 
       if (paragraph.paragraphBounds && !isParagraphStartRow) {
         boxes.push(
@@ -298,12 +304,19 @@ function hasVerticalParallelContinuation(
   metrics: CharacterMetrics,
 ): boolean {
   return paragraphs.some((paragraph) => {
-    if (paragraph === currentParagraph || paragraph.pageIndex !== currentParagraph.pageIndex || !paragraph.metrics) {
+    if (
+      paragraph === currentParagraph ||
+      paragraph.pageIndex !== currentParagraph.pageIndex ||
+      !paragraph.metrics
+    ) {
       return false
     }
 
     return groupVerticalColumns(paragraph.symbols, paragraph.metrics).some((column) => {
-      return Math.abs(column.avgX - currentColumn.avgX) <= metrics.avgWidth && column.top > currentColumn.bottom
+      return (
+        Math.abs(column.avgX - currentColumn.avgX) <= metrics.avgWidth &&
+        column.top > currentColumn.bottom
+      )
     })
   })
 }
@@ -316,12 +329,18 @@ function hasHorizontalParallelContinuation(
   metrics: CharacterMetrics,
 ): boolean {
   return paragraphs.some((paragraph) => {
-    if (paragraph === currentParagraph || paragraph.pageIndex !== currentParagraph.pageIndex || !paragraph.metrics) {
+    if (
+      paragraph === currentParagraph ||
+      paragraph.pageIndex !== currentParagraph.pageIndex ||
+      !paragraph.metrics
+    ) {
       return false
     }
 
     return groupHorizontalRows(paragraph.symbols, paragraph.metrics).some((row) => {
-      return Math.abs(row.avgY - currentRow.avgY) <= metrics.avgHeight && row.left > currentRow.right
+      return (
+        Math.abs(row.avgY - currentRow.avgY) <= metrics.avgHeight && row.left > currentRow.right
+      )
     })
   })
 }
@@ -438,9 +457,13 @@ function createVerticalGapBoxes({
     y: gapStart + margin + index * (metrics.avgHeight + margin),
     width: metrics.avgWidth,
     height: metrics.avgHeight,
+    midX: centerX,
+    midY: gapStart + margin + index * (metrics.avgHeight + margin) + metrics.avgHeight / 2,
     pageIndex: paragraph.pageIndex,
     blockIndex: paragraph.blockIndex,
     paragraphIndex: paragraph.paragraphIndex,
+    text: '🔴',
+    isMissingPlaceholder: true,
     reason,
   }))
 }
@@ -474,9 +497,13 @@ function createHorizontalGapBoxes({
     y: centerY - metrics.avgHeight / 2,
     width: metrics.avgWidth,
     height: metrics.avgHeight,
+    midX: gapStart + margin + index * (metrics.avgWidth + margin) + metrics.avgWidth / 2,
+    midY: centerY,
     pageIndex: paragraph.pageIndex,
     blockIndex: paragraph.blockIndex,
     paragraphIndex: paragraph.paragraphIndex,
+    text: '🔴',
+    isMissingPlaceholder: true,
     reason,
   }))
 }
@@ -501,8 +528,14 @@ function filterBoxesOverlappingSymbols(
 
 // 计算两个矩形边界框的重叠面积。
 function calculateOverlapArea(first: Bounds, second: Bounds): number {
-  const overlapWidth = Math.max(0, Math.min(first.right, second.right) - Math.max(first.left, second.left))
-  const overlapHeight = Math.max(0, Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top))
+  const overlapWidth = Math.max(
+    0,
+    Math.min(first.right, second.right) - Math.max(first.left, second.left),
+  )
+  const overlapHeight = Math.max(
+    0,
+    Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top),
+  )
   return overlapWidth * overlapHeight
 }
 
