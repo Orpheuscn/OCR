@@ -22,6 +22,7 @@ export interface Symbol {
   text: string
   boundingBox?: BoundingBox
   property?: SymbolProperty
+  confidence?: number
 }
 
 export interface Word {

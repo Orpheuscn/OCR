@@ -103,7 +103,8 @@
               width: `${symbol.width}px`,
               height: `${symbol.height}px`,
               fontSize: `${symbol.fontSize}px`,
-              lineHeight: `${symbol.height}px`
+              lineHeight: `${symbol.height}px`,
+              backgroundColor: getSymbolBackgroundColor(symbol.confidence)
             }"
             :title="getSymbolTooltip(symbol)"
             @click="copySymbolText(symbol)"
@@ -247,6 +248,13 @@ const getSymbolTooltip = (symbol: any): string => {
     `Sym ${symbol.blockIdx}-${symbol.paraIdx}-${symbol.wordIdx}-${symbol.symIdx}`,
     text
   ].join('\n')
+}
+
+const getSymbolBackgroundColor = (confidence?: number): string => {
+  if (confidence === undefined) return 'transparent'
+  if (confidence < 0.3) return 'rgba(239, 68, 68, 0.65)'
+  if (confidence > 0.3 && confidence < 0.4) return 'rgba(250, 204, 21, 0.7)'
+  return 'transparent'
 }
 
 const copyText = async (text: string) => {

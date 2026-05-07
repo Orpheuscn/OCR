@@ -9,6 +9,7 @@ interface SymbolData {
   y: number
   width: number
   height: number
+  confidence?: number
   blockIdx: number
   paraIdx: number
   wordIdx: number
@@ -66,6 +67,7 @@ export const useCoordinateStore = defineStore('coordinate', () => {
                   y: minY,
                   width: maxX - minX,
                   height: maxY - minY,
+                  confidence: symbol.confidence,
                   blockIdx,
                   paraIdx,
                   wordIdx,
@@ -212,4 +214,3 @@ export const useCoordinateStore = defineStore('coordinate', () => {
     setImageDimensions
   }
 })
-
