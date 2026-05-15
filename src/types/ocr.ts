@@ -64,6 +64,7 @@ export interface ProcessedSymbol {
   text: string
   isFiltered: boolean
   detectedBreak: DetectedBreak
+  confidence?: number
   midX: number
   midY: number
   width: number

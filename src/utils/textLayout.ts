@@ -10,6 +10,7 @@ interface SymbolData {
   detectedBreak?: {
     type?: string
   }
+  confidence?: number
   midX: number
   midY: number
   width: number
@@ -34,6 +35,7 @@ interface FullTextAnnotation {
         words?: Array<{
           symbols?: Array<{
             text: string
+            confidence?: number
             boundingBox?: {
               vertices?: Array<{ x?: number; y?: number }>
             }
@@ -55,9 +57,66 @@ import {
 } from '@/utils/textProcessors'
 
 const GROUP_THRESHOLD_RATIO = 0.75
+type ConfidenceMarkerType = 'red' | 'yellow'
+
+interface ConfidenceTextPiece {
+  text: string
+  marker: ConfidenceMarkerType | null
+}
 
 function hasMissingPlaceholders(symbols: SymbolData[]): boolean {
   return symbols.some((symbol) => symbol.isMissingPlaceholder)
+}
+
+function getConfidenceMarkerType(symbol: SymbolData): ConfidenceMarkerType | null {
+  if (symbol.isMissingPlaceholder || symbol.confidence === undefined) return null
+  if (symbol.confidence < 0.3) return 'red'
+  if (symbol.confidence > 0.3 && symbol.confidence < 0.4) return 'yellow'
+  return null
+}
+
+function hasConfidenceMarkedSymbols(symbols: SymbolData[]): boolean {
+  return symbols.some((symbol) => getConfidenceMarkerType(symbol) !== null)
+}
+
+function getConfidenceMarkerWrap(marker: ConfidenceMarkerType): [string, string] {
+  return marker === 'red' ? ['👉', '👈'] : ['🫱', '🫲']
+}
+
+function renderConfidenceMarkedPieces(pieces: ConfidenceTextPiece[]): string {
+  let text = ''
+  let activeMarker: ConfidenceMarkerType | null = null
+
+  pieces.forEach((piece) => {
+    if (!piece.text) return
+
+    if (piece.marker !== activeMarker) {
+      if (activeMarker) {
+        text += getConfidenceMarkerWrap(activeMarker)[1]
+      }
+
+      if (piece.marker) {
+        text += getConfidenceMarkerWrap(piece.marker)[0]
+      }
+
+      activeMarker = piece.marker
+    }
+
+    text += piece.text
+  })
+
+  if (activeMarker) {
+    text += getConfidenceMarkerWrap(activeMarker)[1]
+  }
+
+  return text
+}
+
+function getSymbolTextPiece(symbol: SymbolData): ConfidenceTextPiece {
+  return {
+    text: symbol.text,
+    marker: getConfidenceMarkerType(symbol),
+  }
 }
 
 function average(values: number[]): number {
@@ -149,7 +208,9 @@ function processHorizontalTextByCoordinates(symbols: SymbolData[], languageCode:
       (a, b) => average(a.map((symbol) => symbol.midY)) - average(b.map((symbol) => symbol.midY)),
     )
 
-  return rows.map((row) => row.map((symbol) => symbol.text).join('')).join('\n')
+  return rows
+    .map((row) => renderConfidenceMarkedPieces(row.map(getSymbolTextPiece)))
+    .join('\n')
 }
 
 function processVerticalTextByCoordinates(
@@ -180,7 +241,7 @@ function processVerticalTextByCoordinates(
     )
 
   return columns
-    .map((column) => column.map((symbol) => symbol.text).join(''))
+    .map((column) => renderConfidenceMarkedPieces(column.map(getSymbolTextPiece)))
     .join(joinColumnsWithNewline ? '\n' : '')
 }
 
@@ -209,9 +270,10 @@ export function processHorizontalParallelText(
   const hasOriginalText = fullTextAnnotation?.text && typeof fullTextAnnotation.text === 'string'
   const allSymbolsFiltered = filteredSymbolsData.every((symbol) => symbol.isFiltered)
   const includesMissingPlaceholders = hasMissingPlaceholders(filteredSymbolsData)
+  const includesConfidenceMarkers = hasConfidenceMarkedSymbols(filteredSymbolsData)
 
   // 如果有原始文本并且所有符号都被过滤，直接使用原始文本
-  if (hasOriginalText && allSymbolsFiltered && !includesMissingPlaceholders) {
+  if (hasOriginalText && allSymbolsFiltered && !includesMissingPlaceholders && !includesConfidenceMarkers) {
     // 只在无空格语言时进行标点替换
     if (checkLanguageCategory(languageCode, 'no_space')) {
       return processPunctuation(fullTextAnnotation.text || '', languageCode)
@@ -224,7 +286,7 @@ export function processHorizontalParallelText(
   }
 
   // 否则处理过滤后的符号
-  let text = ''
+  const pieces: ConfidenceTextPiece[] = []
   const filteredSymbols = filteredSymbolsData.filter((symbol) => symbol.isFiltered)
 
   filteredSymbols.forEach((symbol) => {
@@ -234,11 +296,14 @@ export function processHorizontalParallelText(
       languageCode,
       symbol.detectedBreak?.type,
     )
-    text += processedText
+    pieces.push({
+      text: processedText,
+      marker: getConfidenceMarkerType(symbol),
+    })
 
     // 如果需要添加空格
     if (needSpace) {
-      text += ' '
+      pieces.push({ text: ' ', marker: null })
     }
 
     // 处理断行
@@ -246,11 +311,11 @@ export function processHorizontalParallelText(
       symbol.detectedBreak &&
       (symbol.detectedBreak.type === 'LINE_BREAK' || symbol.detectedBreak.type === 'HYPHEN')
     ) {
-      text += '\n'
+      pieces.push({ text: '\n', marker: null })
     }
   })
 
-  return cleanTextSpaces(text)
+  return cleanTextSpaces(renderConfidenceMarkedPieces(pieces))
 }
 
 /**
@@ -317,7 +382,7 @@ export function processHorizontalParagraphText(
   fullTextAnnotation.pages.forEach((page) => {
     page.blocks?.forEach((block) => {
       block.paragraphs?.forEach((paragraph) => {
-        let currentParagraphText = ''
+        const currentParagraphPieces: ConfidenceTextPiece[] = []
         let paragraphHasFilteredContent = false
         let paragraphMinY = Infinity
 
@@ -365,13 +430,16 @@ export function processHorizontalParagraphText(
                   languageCode,
                   breakType?.type || '',
                 )
-                currentParagraphText += processedText
+                currentParagraphPieces.push({
+                  text: processedText,
+                  marker: getConfidenceMarkerType(symbolData),
+                })
 
                 paragraphHasFilteredContent = true
 
                 // 如果需要添加空格
                 if (needSpace) {
-                  currentParagraphText += ' '
+                  currentParagraphPieces.push({ text: ' ', marker: null })
                 }
               }
             }
@@ -379,7 +447,7 @@ export function processHorizontalParagraphText(
         }) // 单词循环结束
 
         if (paragraphHasFilteredContent) {
-          const cleanedText = cleanTextSpaces(currentParagraphText) // 使用工具函数清理空格
+          const cleanedText = cleanTextSpaces(renderConfidenceMarkedPieces(currentParagraphPieces)) // 使用工具函数清理空格
           if (cleanedText.length > 0) {
             paragraphsOutput.push({
               text: cleanedText,
@@ -501,7 +569,9 @@ export function processVerticalParallelText(
   })
 
   // 拼接结果 - 与 TextVerticalParallel 组件保持一致
-  const resultText = columns.map((col) => col.map((s) => s.text).join('')).join('\n')
+  const resultText = columns
+    .map((col) => renderConfidenceMarkedPieces(col.map(getSymbolTextPiece)))
+    .join('\n')
   return resultText.length > 0 ? resultText : ''
 }
 
@@ -670,7 +740,9 @@ export function processVerticalParagraphText(
 
           // 生成垂直段落文本 - 与 TextVerticalParagraph 组件保持一致
           // 列内字符直接连接，列之间不添加分隔符
-          const paragraphText = columns.map((col) => col.map((s) => s.text).join('')).join('')
+          const paragraphText = columns
+            .map((col) => renderConfidenceMarkedPieces(col.map(getSymbolTextPiece)))
+            .join('')
 
           paragraphs.push({
             text: paragraphText,

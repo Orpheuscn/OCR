@@ -182,6 +182,7 @@ const extractSymbolsData = (fullTextAnnotation: FullTextAnnotation): ProcessedSy
                 text: symbol.text,
                 isFiltered: true, // 默认所有符号都被过滤
                 detectedBreak: symbol.property?.detectedBreak || {},
+                confidence: symbol.confidence,
                 midX: (minX + maxX) / 2,
                 midY: (minY + maxY) / 2,
                 width: maxX - minX,
